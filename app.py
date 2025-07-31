@@ -1,98 +1,53 @@
-import tkinter as tk
-from tkinter import filedialog, messagebox, scrolledtext
-import threading
-import speech_recognition as sr
+import streamlit as st
 from docx import Document
 from docx.shared import Pt
-import pyperclip
+import speech_recognition as sr
+from pydub import AudioSegment
+from io import BytesIO
 
-class DictationApp:
-    def __init__(self, root):
-        self.root = root
-        self.root.title("Hindi Dictation Recorder")
-        self.is_recording = False
-        self.transcribed_text = ""
+st.title("Hindi Dictation App (Upload & Transcribe)")
 
-        # Text preview area
-        self.text_area = scrolledtext.ScrolledText(
-            root, wrap=tk.WORD, font=("Arial", 15), width=60, height=15)
-        self.text_area.pack(pady=10)
+audio_file = st.file_uploader("Upload your Hindi audio file (WAV / MP3)", type=["wav", "mp3"])
+if audio_file is not None:
+    st.audio(audio_file, format='audio/wav')
+    audio_bytes = BytesIO(audio_file.read())
+    audio = AudioSegment.from_file(audio_bytes)
+    wav_io = BytesIO()
+    audio.export(wav_io, format="wav")
+    wav_io.seek(0)
 
-        # Control buttons
-        btn_frame = tk.Frame(root)
-        btn_frame.pack()
+    recognizer = sr.Recognizer()
+    with sr.AudioFile(wav_io) as source:
+        audio_data = recognizer.record(source)
+        with st.spinner("Transcribing..."):
+            try:
+                transcription = recognizer.recognize_google(audio_data, language="hi-IN")
+                st.success("Transcription Completed!")
+            except Exception as e:
+                st.error(f"Error during transcription: {e}")
+                transcription = ""
 
-        self.start_btn = tk.Button(btn_frame, text="Start", command=self.start_recording)
-        self.start_btn.pack(side=tk.LEFT, padx=5)
-        self.stop_btn = tk.Button(btn_frame, text="Stop", command=self.stop_recording, state=tk.DISABLED)
-        self.stop_btn.pack(side=tk.LEFT, padx=5)
-        self.copy_btn = tk.Button(btn_frame, text="Copy", command=self.copy_text)
-        self.copy_btn.pack(side=tk.LEFT, padx=5)
-        self.save_btn = tk.Button(btn_frame, text="Save as DOCX", command=self.save_docx)
-        self.save_btn.pack(side=tk.LEFT, padx=5)
+    if transcription:
+        edited_text = st.text_area("Edit the transcribed text here:", transcription, height=200)
+        if st.button("Download as DOCX"):
+            doc = Document()
+            p = doc.add_paragraph()
+            run = p.add_run(edited_text)
+            run.font.size = Pt(16)  # Font size set; font name not set because Mangal font is not on the server
 
-        self.recognizer = sr.Recognizer()
-        self.mic = sr.Microphone()
+            file_stream = BytesIO()
+            doc.save(file_stream)
+            file_stream.seek(0)
+            st.download_button(
+                label="Download DOCX",
+                data=file_stream,
+                file_name="hindi_dictation.docx",
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            )
 
-    def start_recording(self):
-        self.is_recording = True
-        self.text_area.delete("1.0", tk.END)
-        self.transcribed_text = ""
-        self.start_btn.config(state=tk.DISABLED)
-        self.stop_btn.config(state=tk.NORMAL)
-        threading.Thread(target=self.record).start()
-
-    def stop_recording(self):
-        self.is_recording = False
-        self.start_btn.config(state=tk.NORMAL)
-        self.stop_btn.config(state=tk.DISABLED)
-
-    def record(self):
-        with self.mic as source:
-            self.recognizer.adjust_for_ambient_noise(source)
-            while self.is_recording:
-                try:
-                    audio = self.recognizer.listen(source, timeout=5)
-                    text = self.recognizer.recognize_google(audio, language="hi-IN")
-                    self.transcribed_text += text + " "
-                    self.text_area.insert(tk.END, text + " ")
-                    self.text_area.see(tk.END)
-                except sr.WaitTimeoutError:
-                    continue
-                except sr.UnknownValueError:
-                    continue
-                except sr.RequestError as e:
-                    messagebox.showerror("Error", f"Speech Recognition error:\n{e}")
-                    break
-
-    def copy_text(self):
-        text = self.text_area.get("1.0", tk.END).strip()
-        if text:
-            pyperclip.copy(text)
-            messagebox.showinfo("Copied", "Text copied to clipboard!")
-
-    def save_docx(self):
-        text = self.text_area.get("1.0", tk.END).strip()
-        if not text:
-            messagebox.showwarning("Empty", "No text to save!")
-            return
-        file_path = filedialog.asksaveasfilename(
-            defaultextension=".docx", filetypes=[("Word files", "*.docx")])
-        if not file_path:
-            return
-        doc = Document()
-        para = doc.add_paragraph()
-        run = para.add_run(text)
-        run.font.name = "Mangal"
-        run.font.size = Pt(16)
-        # DOCX trick for font: set eastAsia as well
-        import docx.oxml.ns
-        rFonts = run._element.rPr.rFonts
-        rFonts.set(docx.oxml.ns.qn('w:eastAsia'), 'Mangal')
-        doc.save(file_path)
-        messagebox.showinfo("Saved", f"Saved at:\n{file_path}")
-
-if __name__ == "__main__":
-    root = tk.Tk()
-    app = DictationApp(root)
-    root.mainloop()
+        st.info(
+            "Note: The Mangal font is not embedded in the file since the server runs Linux. "
+            "After downloading, open the document in MS Word and set the font to Mangal manually."
+        )
+else:
+    st.info("Please upload an audio file to begin transcription.")
