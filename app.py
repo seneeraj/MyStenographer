@@ -5,7 +5,7 @@ import speech_recognition as sr
 from pydub import AudioSegment
 from io import BytesIO
 
-st.title("Speach to Document")
+st.title("Converter - Speech to Document")
 
 audio_file = st.file_uploader("Upload your Hindi audio file (wav/mp3)", type=["wav", "mp3","m4a"])
 
