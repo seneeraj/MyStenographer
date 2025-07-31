@@ -5,7 +5,7 @@ import speech_recognition as sr
 from pydub import AudioSegment
 from io import BytesIO
 
-st.title("Hindi Dictation App - Upload & Transcribe")
+st.title("Speach to Document")
 
 audio_file = st.file_uploader("Upload your Hindi audio file (wav/mp3)", type=["wav", "mp3","m4a"])
 
