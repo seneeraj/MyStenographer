@@ -1,4 +1,4 @@
+streamlit>=1.33.0
+pydub>=0.25.1
 speechrecognition
-pyaudio
 python-docx
-pyperclip
