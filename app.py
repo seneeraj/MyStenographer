@@ -7,7 +7,7 @@ from io import BytesIO
 
 st.title("Hindi Dictation App - Upload & Transcribe")
 
-audio_file = st.file_uploader("Upload your Hindi audio file (wav/mp3)", type=["wav", "mp3"])
+audio_file = st.file_uploader("Upload your Hindi audio file (wav/mp3)", type=["wav", "mp3","m4a"])
 
 if audio_file is not None:
     st.audio(audio_file)
